@@ -1,0 +1,35 @@
+models:
+  classifier:
+    name: answerdotai/ModernBERT-base
+    runtime: cpu
+  overlay:
+    name: qwen2.5:3b
+    runtime: gpu
+  brain:
+    name: qwen2.5:7b
+    runtime: gpu
+  prose:
+    name: qwen2.5:7b
+    runtime: gpu
+    streaming: true
+
+ollama:
+  host: http://localhost:11434
+
+features:
+  stream_thoughts: true
+  enable_safety: true
+
+latency_targets_ms:
+  classify: 10
+  overlay: 150
+  brain: 4000
+  prose_first_token: 500
+
+persona:
+  name: Elena_v1
+  rules:
+    - warm_but_restrained
+    - avoid_emotional_closure
+    - do_not_mirror_directly
+    - maintain_distance

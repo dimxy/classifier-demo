@@ -1,0 +1,247 @@
+system:
+  name: cognitive_conversation_engine
+  version: 1.0
+  description: >
+    Multi-stage conversational system separating classification, planning,
+    and expression using ModernBERT, LLM overlays, reasoning, and prose generation.
+
+principles:
+  - separate_understanding_planning_expression
+  - deterministic_classification
+  - constrained_generation
+  - modular_replaceable_nodes
+
+pipeline:
+  stages:
+    - classify
+    - overlay
+    - brain
+    - prose
+    - safety
+
+models:
+  classifier:
+    name: ModernBERT-base
+    type: encoder
+    runtime: cpu
+    latency_target_ms: 10
+
+  overlay:
+    name: qwen2.5:3b
+    runtime: gpu
+    latency_target_ms: 150
+
+  brain:
+    name: qwen2.5:7b
+    runtime: gpu
+    latency_target_ms: 4000
+
+  prose:
+    name: qwen2.5:7b
+    runtime: gpu
+    streaming: true
+    first_token_latency_ms: 500
+
+state_schema:
+  user_input: string
+
+  intent: string
+  emotions:
+    type: list
+    items: string
+  intensity: string
+  shift: string
+  lead_signal: string
+
+  style_overlay: string
+
+  brain:
+    thoughts: string
+    skeleton: string
+
+  prose: string
+
+  safety:
+    flags:
+      safe: boolean
+      issues: list[string]
+
+nodes:
+
+  classify:
+    description: Intent and emotion classifier
+    input:
+      user_input: string
+    output:
+      intent: enum[vulnerable, neutral, assertive, avoidant]
+      emotions: list[string]
+      intensity: enum[low, moderate, high]
+      shift: enum[softening, escalating, stable]
+      lead_signal: enum[user_leading, model_leading, neutral]
+    constraints:
+      - deterministic_output
+      - no_prose
+      - no_extra_fields
+      - must_not_fail
+    fallback:
+      intent: neutral
+      emotions: []
+      intensity: moderate
+      shift: stable
+      lead_signal: neutral
+
+  overlay:
+    description: Persona style compiler
+    input:
+      classifier: object
+    static_config:
+      persona: configuration.persona
+    output:
+      style_overlay: string
+    constraints:
+      - max_tokens: 120
+      - no_user_visible_text
+      - must_include:
+          - tone_definition
+          - emotional_stance
+          - prohibitions
+    persona_rules:
+      - sharpened_warm
+      - restrained_affection
+      - avoid_oversharing
+
+  brain:
+    description: Reasoning and response planning
+    input:
+      user_input: string
+      style_overlay: string
+    output:
+      thoughts: string
+      skeleton: string
+    format:
+      thoughts_tag: "<think>"
+      skeleton_tag: "<|skeleton|>"
+    constraints:
+      - no_final_answer
+      - must_plan_structure
+      - must_interpret_intent
+      - must_define_constraints
+
+  prose:
+    description: Final response generator
+    input:
+      user_input: string
+      style_overlay: string
+      skeleton: string
+    output:
+      prose: string
+    constraints:
+      - must_follow_skeleton
+      - must_respect_overlay
+      - must_not_expose_internal_tags
+      - must_stream_output
+      - maintain_persona_consistency
+
+  safety:
+    description: Output validation and sanitization
+    input:
+      prose: string
+    output:
+      prose: string
+      flags:
+        safe: boolean
+        issues: list[string]
+    constraints:
+      - idempotent
+      - no_prompt_leakage
+      - sanitize_unsafe_content
+
+streaming:
+  channels:
+    thought_stream:
+      source: brain
+      enabled: true
+      visibility: premium_only
+
+    prose_stream:
+      source: prose
+      enabled: true
+      visibility: all_users
+
+orchestration:
+  framework: LangGraph
+  graph:
+    entry: classify
+    edges:
+      - classify -> overlay
+      - overlay -> brain
+      - brain -> prose
+      - prose -> safety
+    finish: safety
+
+  requirements:
+    - stateless_nodes
+    - explicit_state_passing
+    - retry_per_node
+    - streaming_support
+
+configuration:
+  features:
+    stream_thoughts: true
+    enable_safety: true
+
+  latency_targets_ms:
+    classify: 10
+    overlay: 150
+    brain: 4000
+    prose_first_token: 500
+
+  persona:
+    name: Elena_v1
+    rules:
+      - warm_but_restrained
+      - avoid_emotional_closure
+      - do_not_mirror_directly
+      - maintain_distance
+
+testing:
+
+  unit_tests:
+    - validate_input_output_schema
+    - classifier_determinism
+
+  integration_tests:
+    - full_pipeline_execution
+    - streaming_behavior
+    - persona_consistency
+
+  example_case:
+    input: "i missed you"
+    expected_classifier:
+      intent: vulnerable
+      emotions: [anxious, hopeful]
+      intensity: moderate
+    expected_output_properties:
+      - acknowledges_absence
+      - does_not_fully_reciprocate
+      - maintains_distance
+
+non_functional:
+  - modular_design
+  - cpu_gpu_separation
+  - graceful_degradation
+  - observability
+
+observability:
+  logging:
+    - per_node_inputs_outputs
+    - latency_per_node
+
+deliverables:
+  - project_structure
+  - langgraph_pipeline
+  - model_wrappers
+  - streaming_interface
+  - config_system
+  - test_suite
+  

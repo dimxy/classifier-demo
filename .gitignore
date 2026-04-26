@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+dist/
+build/
+.mypy_cache/
+.pyright/
+.ruff_cache/
+.pytest_cache/
+htmlcov/
+.coverage
+
+# Environment
+.env
+*.env.local
+
+# Docker volumes
+postgres_data/
+redis_data/
+qdrant_data/
+
+# ML model weights (never commit — files can be gigabytes)
+# Using file-extension patterns + root-level /models/ anchor so that
+# app/models/ (SQLAlchemy ORM package) is NOT affected.
+*.bin
+*.safetensors
+*.gguf
+/models/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# MacOS
+.DS_Store
+logs/*
+skills/*
