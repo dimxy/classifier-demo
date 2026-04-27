@@ -4,7 +4,7 @@ from typing import Any, Dict
 
 from ..config import Persona
 from ..models.llm import OllamaLLM
-from ..observability import log_node_output, time_node
+from ..observability import log_node_output, time_node, logger
 from ..state import ConversationState
 
 
@@ -43,6 +43,7 @@ class OverlayNode:
             try:
                 overlay = self.llm.generate(prompt, system=OVERLAY_SYSTEM, max_tokens=120)
             except Exception as exc:
+                logger.error(f"overlay llm.generate: {str(exc)}")
                 overlay = _fallback_overlay(self.persona, classifier, str(exc))
             overlay = overlay.strip()
             log_node_output("overlay", {"style_overlay": overlay})

@@ -4,7 +4,7 @@ import re
 from typing import Any, Dict
 
 from ..models.llm import OllamaLLM
-from ..observability import log_node_output, time_node
+from ..observability import log_node_output, time_node, logger
 from ..state import ConversationState
 
 
@@ -54,7 +54,8 @@ class BrainNode:
         with time_node("brain", {"user_input": user_input}):
             try:
                 raw = self.llm.generate(prompt, system=BRAIN_SYSTEM, max_tokens=512)
-            except Exception:
+            except Exception as exc:
+                logger.error(f"brain llm.generate: {str(exc)}")
                 raw = _fallback_brain(user_input, style_overlay)
             thoughts, skeleton = _parse(raw)
             log_node_output("brain", {"thoughts": thoughts, "skeleton": skeleton})
