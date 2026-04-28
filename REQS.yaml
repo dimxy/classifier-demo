@@ -7,7 +7,7 @@ system:
 
 principles:
   - separate_understanding_planning_expression
-  - deterministic_classification
+  - stable_classification
   - constrained_generation
   - modular_replaceable_nodes
 
@@ -15,9 +15,11 @@ pipeline:
   stages:
     - classify
     - overlay
+    - recall
     - brain
     - prose
     - safety
+    - persist
 
 models:
   classifier:
@@ -30,17 +32,30 @@ models:
     name: qwen2.5:3b
     runtime: gpu
     latency_target_ms: 150
+    provider: enum[ollama, openai]   # selectable per node via config.yaml
+    openai_url: string               # required when provider=openai
 
   brain:
     name: qwen2.5:7b
     runtime: gpu
     latency_target_ms: 4000
+    provider: enum[ollama, openai]
+    openai_url: string
 
   prose:
     name: qwen2.5:7b
     runtime: gpu
     streaming: true
     first_token_latency_ms: 500
+    provider: enum[ollama, openai]
+    openai_url: string
+
+  llm_providers:
+    ollama:
+      host: string                   # single global host shared by all ollama nodes
+    openai:
+      api_key_env: string            # name of env var holding the API key (default OPENAI_API_KEY)
+      base_url: per_node             # each node sets its own openai_url
 
 state_schema:
   user_input: string
@@ -54,6 +69,13 @@ state_schema:
   lead_signal: string
 
   style_overlay: string
+
+  recalled_turns:
+    type: list
+    items:
+      user_input: string
+      prose: string
+      score: float
 
   brain:
     thoughts: string
@@ -79,7 +101,7 @@ nodes:
       shift: enum[softening, escalating, stable]
       lead_signal: enum[user_leading, model_leading, neutral]
     constraints:
-      - deterministic_output
+      - stable_output
       - no_prose
       - no_extra_fields
       - must_not_fail
@@ -110,11 +132,23 @@ nodes:
       - restrained_affection
       - avoid_oversharing
 
+  recall:
+    description: Semantic retrieval of prior turns from the persistence store
+    input:
+      user_input: string
+    output:
+      recalled_turns: list[object]
+    constraints:
+      - must_not_fail
+      - graceful_degradation
+      - read_only
+
   brain:
     description: Reasoning and response planning
     input:
       user_input: string
       style_overlay: string
+      recalled_turns: list[object]
     output:
       thoughts: string
       skeleton: string
@@ -156,6 +190,17 @@ nodes:
       - no_prompt_leakage
       - sanitize_unsafe_content
 
+  persist:
+    description: Append the sanitized turn to the persistence store
+    input:
+      user_input: string
+      prose: string
+    output: {}
+    constraints:
+      - must_not_fail
+      - graceful_degradation
+      - write_only
+
 streaming:
   channels:
     thought_stream:
@@ -174,10 +219,12 @@ orchestration:
     entry: classify
     edges:
       - classify -> overlay
-      - overlay -> brain
+      - overlay -> recall
+      - recall -> brain
       - brain -> prose
       - prose -> safety
-    finish: safety
+      - safety -> persist
+    finish: persist
 
   requirements:
     - stateless_nodes
@@ -185,10 +232,24 @@ orchestration:
     - retry_per_node
     - streaming_support
 
+persistence:
+  backend: qdrant_local
+  path: ./qdrant_data/
+  collection: chat_turns
+  embedder:
+    source: models.classifier
+    pooling: mean
+    vector_size: 768
+  recall:
+    top_k: 3
+    distance: cosine
+  thread_model: single_global
+
 configuration:
   features:
     stream_thoughts: true
     enable_safety: true
+    enable_persistence: true
 
   latency_targets_ms:
     classify: 10
@@ -231,6 +292,7 @@ non_functional:
   - cpu_gpu_separation
   - graceful_degradation
   - observability
+  - embedding_reuse
 
 observability:
   logging:

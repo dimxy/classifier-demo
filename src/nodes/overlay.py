@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict
 
 from ..config import Persona
-from ..models.llm import OllamaLLM
+from ..models.llm import LLMProvider
 from ..observability import log_node_output, time_node, logger
 from ..state import ConversationState
 
@@ -22,7 +22,7 @@ Do NOT produce any user-visible prose. Output only the overlay block.
 
 
 class OverlayNode:
-    def __init__(self, llm: OllamaLLM, persona: Persona) -> None:
+    def __init__(self, llm: LLMProvider, persona: Persona) -> None:
         self.llm = llm
         self.persona = persona
 

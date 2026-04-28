@@ -23,6 +23,12 @@ class SafetyState(TypedDict, total=False):
     flags: SafetyFlags
 
 
+class RecalledTurn(TypedDict, total=False):
+    user_input: str
+    prose: str
+    score: float
+
+
 class ConversationState(TypedDict, total=False):
     user_input: str
 
@@ -33,6 +39,8 @@ class ConversationState(TypedDict, total=False):
     lead_signal: LeadSignal
 
     style_overlay: str
+
+    recalled_turns: List[RecalledTurn]
 
     brain: BrainState
 

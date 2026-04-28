@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, Iterable, Optional
 
-from ..models.llm import OllamaLLM
+from ..models.llm import LLMProvider
 from ..observability import log_node_output, time_node
 from ..state import ConversationState
 
@@ -22,7 +22,7 @@ Output the prose only. No preamble, no labels, no tags.
 class ProseNode:
     """Streaming prose generator. Emits chunks via on_chunk if provided."""
 
-    def __init__(self, llm: OllamaLLM, on_chunk: Optional[Callable[[str], None]] = None) -> None:
+    def __init__(self, llm: LLMProvider, on_chunk: Optional[Callable[[str], None]] = None) -> None:
         self.llm = llm
         self.on_chunk = on_chunk
 

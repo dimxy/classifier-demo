@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any, Dict
 
-from ..models.llm import OllamaLLM
+from ..models.llm import LLMProvider
 from ..observability import log_node_output, time_node, logger
 from ..state import ConversationState
 
@@ -40,13 +40,16 @@ _SKELETON_RE = re.compile(rf"{re.escape(SKELETON_TAG)}(.*?){re.escape(SKELETON_C
 
 
 class BrainNode:
-    def __init__(self, llm: OllamaLLM) -> None:
+    def __init__(self, llm: LLMProvider) -> None:
         self.llm = llm
 
     def __call__(self, state: ConversationState) -> Dict[str, Any]:
         user_input = state.get("user_input", "")
         style_overlay = state.get("style_overlay", "")
+        recalled = state.get("recalled_turns") or []
+        context_block = _render_recalled(recalled)
         prompt = (
+            f"{context_block}"
             f"user_input:\n{user_input}\n\n"
             f"style_overlay:\n{style_overlay}\n\n"
             "Produce the two tagged blocks now."
@@ -60,6 +63,18 @@ class BrainNode:
             thoughts, skeleton = _parse(raw)
             log_node_output("brain", {"thoughts": thoughts, "skeleton": skeleton})
         return {"brain": {"thoughts": thoughts, "skeleton": skeleton}}
+
+
+def _render_recalled(recalled) -> str:
+    if not recalled:
+        return ""
+    lines = ["RECENT CONTEXT (most relevant prior turns, oldest preserved verbatim):"]
+    for turn in recalled:
+        u = (turn.get("user_input") or "").strip().replace("\n", " ")
+        p = (turn.get("prose") or "").strip().replace("\n", " ")
+        lines.append(f'- user said: "{u}" / model replied: "{p}"')
+    lines.append("")
+    return "\n".join(lines) + "\n"
 
 
 def _parse(raw: str) -> tuple[str, str]:

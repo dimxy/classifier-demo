@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict
 
 from ..models.classifier import ModernBertClassifier
-from ..observability import log_node_output, time_node
+from ..observability import log_node_output, time_node, logger
 from ..state import CLASSIFIER_FALLBACK, ConversationState
 
 
@@ -18,7 +18,9 @@ class ClassifyNode:
         with time_node("classify", {"user_input": text}):
             try:
                 result = self.classifier.classify(text).to_dict()
-            except Exception:
+                logger.info(f"ClassifyNode classifier.classify [{text}] result is okay")
+            except Exception as exc:
+                logger.error(f"ClassifyNode classifier.classify [{text}] error: {str(exc)}")
                 result = dict(CLASSIFIER_FALLBACK)
             log_node_output("classify", result)
         return result

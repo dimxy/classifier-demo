@@ -43,6 +43,18 @@ class ModernBertClassifier:
         self._tokenizer = None
         self._model = None
 
+    def embed(self, text: str) -> list[float]:
+        self._try_load()
+        if self._model is None or self._tokenizer is None:
+            return [0.0] * 768  # graceful degradation
+        import torch
+        with torch.no_grad():
+            toks = self._tokenizer(text, return_tensors="pt", truncation=True, max_length=512)
+            out = self._model(**toks).last_hidden_state          # [1, T, 768]
+            mask = toks["attention_mask"].unsqueeze(-1)          # [1, T, 1]
+            pooled = (out * mask).sum(1) / mask.sum(1).clamp(min=1)
+        return pooled[0].tolist()
+
     def _try_load(self) -> None:
         if self._model is not None:
             return
@@ -51,7 +63,7 @@ class ModernBertClassifier:
 
             self._tokenizer = AutoTokenizer.from_pretrained(self.model_name)
             self._model = AutoModel.from_pretrained(self.model_name)
-            self._model.eval()
+            self._model.eval() # set eval mode
         except Exception:
             self._tokenizer = None
             self._model = None
@@ -59,6 +71,11 @@ class ModernBertClassifier:
     def classify(self, text: str) -> ClassifierResult:
         self._try_load()
         return _deterministic_classify(text)
+
+    def classify_zero_shot(self, text: str) -> Optional[ClassifierResult]:
+        # picks per-field label by max cosine(embed(text), embed(prototype));
+        # emotions are multi-label, thresholded at _EMOTION_THRESHOLD.
+        raise NotImplementedError("classify_zero_shot: implement on top of embed()")
 
 
 _VULNERABLE = re.compile(
@@ -83,6 +100,44 @@ _EMOTION_LEX = {
     "warm": re.compile(r"\b(love|care|sweet|dear)\b", re.IGNORECASE),
     "afraid": re.compile(r"\b(afraid|scared|fear)\b", re.IGNORECASE),
 }
+
+# Prototype descriptions for zero-shot classification via cosine similarity
+# against ModernBERT embeddings. Consumed by classify_zero_shot().
+_INTENT_PROTOTYPES: Dict[str, str] = {
+    "vulnerable": "a vulnerable, hurt, or longing utterance expressing emotional need",
+    "neutral": "a neutral, factual, conversational utterance with no strong emotional charge",
+    "assertive": "an assertive, demanding, or directive utterance asserting will or boundaries",
+    "avoidant": "an avoidant, dismissive, or shut-down utterance deflecting engagement",
+}
+
+_INTENSITY_PROTOTYPES: Dict[str, str] = {
+    "low": "a calm, composed, low-intensity utterance",
+    "moderate": "a moderately emotional utterance with noticeable feeling but controlled tone",
+    "high": "a highly intense, urgent, or emotionally charged utterance",
+}
+
+_SHIFT_PROTOTYPES: Dict[str, str] = {
+    "softening": "a softening, conciliatory, apologetic, or warming utterance",
+    "escalating": "an escalating, hardening, or intensifying utterance",
+    "stable": "a stable, steady utterance with no clear directional shift",
+}
+
+_LEAD_PROTOTYPES: Dict[str, str] = {
+    "user_leading": "an utterance where the user is leading the conversation, asking or directing",
+    "model_leading": "an utterance that defers to the model, inviting it to lead",
+    "neutral": "an utterance with no clear conversational lead",
+}
+
+_EMOTION_PROTOTYPES: Dict[str, str] = {
+    "anxious": "an anxious, worried, or nervous utterance",
+    "hopeful": "a hopeful, longing, or wishful utterance",
+    "sad": "a sad, downcast, or sorrowful utterance",
+    "angry": "an angry, furious, or hostile utterance",
+    "warm": "a warm, affectionate, or caring utterance",
+    "afraid": "an afraid, scared, or fearful utterance",
+}
+
+_EMOTION_THRESHOLD = 0.5
 
 
 def _deterministic_classify(text: str) -> ClassifierResult:

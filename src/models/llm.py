@@ -1,6 +1,27 @@
 from __future__ import annotations
 
-from typing import Iterator, List, Optional
+from typing import Iterator, List, Optional, Protocol, runtime_checkable
+
+
+@runtime_checkable
+class LLMProvider(Protocol):
+    """Structural type for an LLM backend used by overlay / brain / prose nodes."""
+
+    def generate(
+        self,
+        prompt: str,
+        system: Optional[str] = None,
+        max_tokens: Optional[int] = None,
+        stop: Optional[List[str]] = None,
+    ) -> str: ...
+
+    def stream(
+        self,
+        prompt: str,
+        system: Optional[str] = None,
+        max_tokens: Optional[int] = None,
+        stop: Optional[List[str]] = None,
+    ) -> Iterator[str]: ...
 
 
 class OllamaLLM:

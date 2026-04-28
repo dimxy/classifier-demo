@@ -5,20 +5,39 @@ models:
   overlay:
     name: qwen2.5:3b
     runtime: gpu
+    provider: ollama       # ollama | openai
+    openai_url:            # required when provider: openai (e.g. https://api.openai.com/v1)
   brain:
-    name: qwen2.5:7b
+    name: qwen-plus-latest  # qwen2.5:7b
     runtime: gpu
+    provider: openai
+    openai_url: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
   prose:
     name: qwen2.5:7b
     runtime: gpu
     streaming: true
+    provider: ollama
+    openai_url:
 
 ollama:
   host: http://localhost:11434
 
+openai:
+  # Default env var name to read the OpenAI API key from. Per-node override:
+  # set `openai_api_key_env` on a model entry above to point at a different env var.
+  api_key_env: OPENAI_API_KEY
+
 features:
   stream_thoughts: true
   enable_safety: true
+  enable_persistence: true
+
+persistence:
+  enabled: true
+  path: ./qdrant_data/
+  collection: chat_turns
+  top_k: 3
+  vector_size: 768
 
 latency_targets_ms:
   classify: 10
