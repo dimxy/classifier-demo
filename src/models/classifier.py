@@ -42,6 +42,11 @@ class ModernBertClassifier:
         self.model_name = model_name
         self._tokenizer = None
         self._model = None
+        self._proto_intent: Optional[Dict[str, List[float]]] = None
+        self._proto_intensity: Optional[Dict[str, List[float]]] = None
+        self._proto_shift: Optional[Dict[str, List[float]]] = None
+        self._proto_lead: Optional[Dict[str, List[float]]] = None
+        self._proto_emotion: Optional[Dict[str, List[float]]] = None
 
     def embed(self, text: str) -> list[float]:
         self._try_load()
@@ -75,7 +80,31 @@ class ModernBertClassifier:
     def classify_zero_shot(self, text: str) -> Optional[ClassifierResult]:
         # picks per-field label by max cosine(embed(text), embed(prototype));
         # emotions are multi-label, thresholded at _EMOTION_THRESHOLD.
-        raise NotImplementedError("classify_zero_shot: implement on top of embed()")
+        self._try_load()
+        if self._model is None or self._tokenizer is None:
+            return None
+        self._ensure_prototype_cache()
+        vec = self.embed(text)
+        emotions = [
+            label for label, pv in self._proto_emotion.items()
+            if _cosine(vec, pv) >= _EMOTION_THRESHOLD
+        ]
+        return ClassifierResult(
+            intent=_argmax_cosine(vec, self._proto_intent),
+            emotions=emotions,
+            intensity=_argmax_cosine(vec, self._proto_intensity),
+            shift=_argmax_cosine(vec, self._proto_shift),
+            lead_signal=_argmax_cosine(vec, self._proto_lead),
+        )
+
+    def _ensure_prototype_cache(self) -> None:
+        if self._proto_intent is not None:
+            return
+        self._proto_intent = {k: self.embed(v) for k, v in _INTENT_PROTOTYPES.items()}
+        self._proto_intensity = {k: self.embed(v) for k, v in _INTENSITY_PROTOTYPES.items()}
+        self._proto_shift = {k: self.embed(v) for k, v in _SHIFT_PROTOTYPES.items()}
+        self._proto_lead = {k: self.embed(v) for k, v in _LEAD_PROTOTYPES.items()}
+        self._proto_emotion = {k: self.embed(v) for k, v in _EMOTION_PROTOTYPES.items()}
 
 
 _VULNERABLE = re.compile(
@@ -138,6 +167,20 @@ _EMOTION_PROTOTYPES: Dict[str, str] = {
 }
 
 _EMOTION_THRESHOLD = 0.5
+
+
+def _cosine(a: List[float], b: List[float]) -> float:
+    import math
+    dot = sum(x * y for x, y in zip(a, b))
+    na = math.sqrt(sum(x * x for x in a))
+    nb = math.sqrt(sum(x * x for x in b))
+    if na == 0.0 or nb == 0.0:
+        return 0.0
+    return dot / (na * nb)
+
+
+def _argmax_cosine(vec: List[float], prototypes: Dict[str, List[float]]) -> str:
+    return max(prototypes, key=lambda k: _cosine(vec, prototypes[k]))
 
 
 def _deterministic_classify(text: str) -> ClassifierResult:
