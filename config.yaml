@@ -1,6 +1,6 @@
 models:
   classifier:
-    name: answerdotai/ModernBERT-base
+    name: sentence-transformers/all-MiniLM-L6-v2
     runtime: cpu
   overlay:
     name: qwen2.5:3b
@@ -8,9 +8,11 @@ models:
     provider: ollama       # ollama | openai
     openai_url:            # required when provider: openai (e.g. https://api.openai.com/v1)
   brain:
-    name: qwen-plus-latest  # qwen2.5:7b
+    # name: qwen-plus-latest
+    # provider: openai
+    name: qwen2.5:7b
+    provider: ollama
     runtime: gpu
-    provider: openai
     openai_url: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
   prose:
     name: qwen2.5:7b
@@ -37,7 +39,7 @@ persistence:
   path: ./qdrant_data/
   collection: chat_turns
   top_k: 3
-  vector_size: 768
+  vector_size: 384
 
 latency_targets_ms:
   classify: 10

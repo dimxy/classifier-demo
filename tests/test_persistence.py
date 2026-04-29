@@ -45,7 +45,7 @@ class StubLLM:
 
 def _make_cfg(tmp_path) -> Config:
     return Config(
-        classifier=ModelCfg("answerdotai/ModernBERT-base", "cpu"),
+        classifier=ModelCfg("sentence-transformers/all-MiniLM-L6-v2", "cpu"),
         overlay=ModelCfg("qwen2.5:3b", "gpu"),
         brain=ModelCfg("qwen2.5:7b", "gpu"),
         prose=ModelCfg("qwen2.5:7b", "gpu", streaming=True),

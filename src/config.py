@@ -36,7 +36,7 @@ class Persistence:
     path: str = "./qdrant_data/"
     collection: str = "chat_turns"
     top_k: int = 3
-    vector_size: int = 768
+    vector_size: int = 384
 
 
 @dataclass

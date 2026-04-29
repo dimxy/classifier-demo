@@ -74,8 +74,10 @@ class ModernBertClassifier:
             self._model = None
 
     def classify(self, text: str) -> ClassifierResult:
-        self._try_load()
-        return _deterministic_classify(text)
+        result = self.classify_zero_shot(text)
+        if result is not None:
+            return result
+        return _deterministic_classify(text)  # graceful degradation when encoder unavailable
 
     def classify_zero_shot(self, text: str) -> Optional[ClassifierResult]:
         # picks per-field label by max cosine(embed(text), embed(prototype));
