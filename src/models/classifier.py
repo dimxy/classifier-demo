@@ -38,7 +38,7 @@ class ModernBertClassifier:
     if torch/transformers cannot load, classification still works (fallback path).
     """
 
-    def __init__(self, model_name: str = "answerdotai/ModernBERT-base") -> None:
+    def __init__(self, model_name: str = "sentence-transformers/all-MiniLM-L6-v2") -> None:
         self.model_name = model_name
         self._tokenizer = None
         self._model = None
@@ -51,11 +51,11 @@ class ModernBertClassifier:
     def embed(self, text: str) -> list[float]:
         self._try_load()
         if self._model is None or self._tokenizer is None:
-            return [0.0] * 768  # graceful degradation
+            return [0.0] * 384  # graceful degradation; matches all-MiniLM-L6-v2 hidden size
         import torch
         with torch.no_grad():
             toks = self._tokenizer(text, return_tensors="pt", truncation=True, max_length=512)
-            out = self._model(**toks).last_hidden_state          # [1, T, 768]
+            out = self._model(**toks).last_hidden_state          # [1, T, H]
             mask = toks["attention_mask"].unsqueeze(-1)          # [1, T, 1]
             pooled = (out * mask).sum(1) / mask.sum(1).clamp(min=1)
         return pooled[0].tolist()
@@ -166,7 +166,7 @@ _EMOTION_PROTOTYPES: Dict[str, str] = {
     "afraid": "an afraid, scared, or fearful utterance",
 }
 
-_EMOTION_THRESHOLD = 0.5
+_EMOTION_THRESHOLD = 0.12
 
 
 def _cosine(a: List[float], b: List[float]) -> float:
